@@ -5,6 +5,14 @@
  * - 平原: 100 能量/1000 ticks
  * - 沼泽: 500 能量/1000 ticks
  * - 墙壁: 15000 能量/1000 ticks
+ * planOptimalRoad('W25N48', 37, 49, 'W25N48', 22, 19)
+ * // 建造单条道路
+*    buildRoad('W1N1', 25, 25, 'W1N2', 25, 25, {visualize: true, ignoreExisting: false });
+// 为所有矿点建造道路
+*    buildMiningRoads({
+ *   visualize: true,
+ *   ignoreExisting: false
+ * });
  */
 
 const TERRAIN_COST = {
@@ -205,36 +213,164 @@ const roadPlanner = {
         if (roomsWithoutVision.length > 0) {
             console.log(`警告: 以下房间没有视野，路径可能不是最优: ${roomsWithoutVision.join(', ')}`);
         }
+    },
+
+    /**
+     * 在规划的路径上建造道路
+     * @param {String} fromRoom - 起始房间名
+     * @param {Number} fromX - 起始X坐标
+     * @param {Number} fromY - 起始Y坐标
+     * @param {String} toRoom - 目标房间名
+     * @param {Number} toX - 目标X坐标
+     * @param {Number} toY - 目标Y坐标
+     * @param {Object} [opts] - 可选参数
+     * @param {Boolean} [opts.visualize=true] - 是否可视化建造过程
+     * @param {Boolean} [opts.ignoreExisting=false] - 是否忽略已存在的道路
+     * @returns {Object} 建造结果
+     */
+    buildRoad(fromRoom, fromX, fromY, toRoom, toX, toY, opts = {}) {
+        const options = {
+            visualize: opts.visualize !== false,
+            ignoreExisting: opts.ignoreExisting === true
+        };
+
+        // 首先规划路径
+        const pathResult = this.planRoad(fromRoom, fromX, fromY, toRoom, toX, toY, { 
+            visualize: options.visualize,
+            color: '#ffff00' // 使用黄色表示正在建造的路径
+        });
+
+        if (!pathResult || !pathResult.path.length) {
+            console.log('无法规划有效路径！');
+            return null;
+        }
+
+        const buildResult = {
+            totalRoads: pathResult.path.length,
+            builtRoads: 0,
+            skippedRoads: 0,
+            failedRoads: 0,
+            noVisionRooms: new Set(),
+            constructionSites: [],
+            existingRoads: []
+        };
+
+        // 遍历路径上的每个位置
+        pathResult.path.forEach(pos => {
+            const room = Game.rooms[pos.roomName];
+            
+            // 检查是否有房间视野
+            if (!room) {
+                buildResult.noVisionRooms.add(pos.roomName);
+                buildResult.failedRoads++;
+                return;
+            }
+
+            // 检查该位置是否已有道路
+            const structures = room.lookForAt(LOOK_STRUCTURES, pos.x, pos.y);
+            const existingRoad = structures.find(s => s.structureType === STRUCTURE_ROAD);
+            
+            if (existingRoad) {
+                if (!options.ignoreExisting) {
+                    buildResult.skippedRoads++;
+                    buildResult.existingRoads.push(pos);
+                    return;
+                }
+            }
+
+            // 检查是否已有建筑工地
+            const constructionSites = room.lookForAt(LOOK_CONSTRUCTION_SITES, pos.x, pos.y);
+            const existingSite = constructionSites.find(s => s.structureType === STRUCTURE_ROAD);
+            
+            if (existingSite) {
+                buildResult.skippedRoads++;
+                buildResult.constructionSites.push(pos);
+                return;
+            }
+
+            // 创建道路建筑工地
+            const result = room.createConstructionSite(pos.x, pos.y, STRUCTURE_ROAD);
+            
+            if (result === OK) {
+                buildResult.builtRoads++;
+                buildResult.constructionSites.push(pos);
+            } else {
+                buildResult.failedRoads++;
+                console.log(`在位置 ${pos.x},${pos.y},${pos.roomName} 创建道路失败，错误代码：${result}`);
+            }
+        });
+
+        // 生成建造报告
+        console.log(`=== 道路建造报告 ===`);
+        console.log(`总计划道路数量: ${buildResult.totalRoads}`);
+        console.log(`成功创建建筑工地: ${buildResult.builtRoads}`);
+        console.log(`跳过已存在道路: ${buildResult.skippedRoads}`);
+        console.log(`建造失败数量: ${buildResult.failedRoads}`);
+        
+        if (buildResult.noVisionRooms.size > 0) {
+            console.log(`无视野房间: ${[...buildResult.noVisionRooms].join(', ')}`);
+        }
+
+        return buildResult;
     }
 };
 
-// 添加全局快捷方式
-global.planRoad = function(fromRoom, fromX, fromY, toRoom, toX, toY, opts = {}) {
-    return roadPlanner.planRoad(fromRoom, fromX, fromY, toRoom, toX, toY, opts);
-};
-
-// 为矿点规划道路的快捷方式
+// 将所有全局函数定义移到模块导出之前
+global.roadPlanner = roadPlanner;
+global.planRoad = roadPlanner.planRoad.bind(roadPlanner);
+global.buildRoad = roadPlanner.buildRoad.bind(roadPlanner);
 global.planMiningRoads = function(opts = {}) {
-    const config = require('longminer').config;
-    const homeSpawn = Game.rooms[config.homeRoom].find(FIND_MY_SPAWNS)[0];
-    
-    if (!homeSpawn) {
-        console.log('找不到出生点！');
-        return;
+    try {
+        const config = require('longminer').config;
+        const homeSpawn = Game.rooms[config.homeRoom].find(FIND_MY_SPAWNS)[0];
+        
+        if (!homeSpawn) {
+            console.log('找不到出生点！');
+            return;
+        }
+        
+        config.targets.forEach((target, index) => {
+            console.log(`\n=== 矿点 ${index} 道路规划 ===`);
+            roadPlanner.planRoad(
+                config.homeRoom,
+                homeSpawn.pos.x,
+                homeSpawn.pos.y,
+                target.roomName,
+                target.rally.x,
+                target.rally.y,
+                opts
+            );
+        });
+    } catch (e) {
+        console.log('执行 planMiningRoads 时出错:', e);
     }
-    
-    config.targets.forEach((target, index) => {
-        console.log(`\n=== 矿点 ${index} 道路规划 ===`);
-        roadPlanner.planRoad(
-            config.homeRoom,
-            homeSpawn.pos.x,
-            homeSpawn.pos.y,
-            target.roomName,
-            target.rally.x,
-            target.rally.y,
-            opts
-        );
-    });
+};
+
+global.buildMiningRoads = function(opts = {}) {
+    try {
+        const config = require('longminer').config;
+        const homeSpawn = Game.rooms[config.homeRoom].find(FIND_MY_SPAWNS)[0];
+        
+        if (!homeSpawn) {
+            console.log('找不到出生点！');
+            return;
+        }
+        
+        config.targets.forEach((target, index) => {
+            console.log(`\n=== 矿点 ${index} 道路建造 ===`);
+            roadPlanner.buildRoad(
+                config.homeRoom,
+                homeSpawn.pos.x,
+                homeSpawn.pos.y,
+                target.roomName,
+                target.rally.x,
+                target.rally.y,
+                opts
+            );
+        });
+    } catch (e) {
+        console.log('执行 buildMiningRoads 时出错:', e);
+    }
 };
 
 module.exports = roadPlanner; 

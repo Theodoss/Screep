@@ -14,10 +14,6 @@ interface Memory {
         energy_used: number;
         count: number;
     };
-    creeps: { [name: string]: CreepMemory };
-    flags: { [name: string]: FlagMemory };
-    rooms: { [name: string]: RoomMemory };
-    spawns: { [name: string]: SpawnMemory };
 }
 
 interface CreepMemory {
@@ -38,24 +34,6 @@ interface CreepMemory {
         y: number;
         roomName: string;
     };
-    room: string;
-    working: boolean;
-    containerId?: string;  // Container ID for miners
-    _containerObj?: Structure;  // Cached container object
-    _sourceObj?: Source;  // Cached source object
-    repairing?: boolean;  // Whether the creep is repairing
-}
-
-interface RoomMemory {
-    containerData?: {
-        [containerId: string]: {
-            miner: string | null;
-            source: string;
-            lastAssignTime: number;
-            priority: number;
-        };
-    };
-    lastScanTick?: number;  // Last container scan tick
 }
 
 // 添加全局变量声明
@@ -63,6 +41,5 @@ declare namespace NodeJS {
     interface Global {
         ss: any;
         extensionPlanner: any;
-        Game: Game;
     }
 } 

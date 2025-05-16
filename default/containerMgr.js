@@ -1,29 +1,82 @@
 // containerMgr.js
 const containerManager = {
-    scanInterval: 10,
-
-    /** 每 scanInterval 扫描一次，更新房间 containerData */
+    /** 运行容器管理器的主循环 */
     run(room) {
-        if (!room.memory.containerData) room.memory.containerData = {};
-        if (Game.time %100 == 0) {
-            room.memory._lastContainerScan = Game.time;
-            const sources = room.find(FIND_SOURCES);
-            const containers = room.find(FIND_STRUCTURES, {
-                filter: s =>
-                    s.structureType === STRUCTURE_CONTAINER &&
-                    sources.some(src => s.pos.inRangeTo(src, 1))
-            });
+        try {
+            // 扫描并更新容器数据
+            this.scan(room);
 
-            const prevData = room.memory.containerData;
-            const newData = {};
-            containers.forEach(c => {
-                const linkedSource = sources.find(src => c.pos.inRangeTo(src, 1));
-                const prevEntry = prevData[c.id] || {};
-                const assigned = (prevEntry.miner && Game.creeps[prevEntry.miner]) ? prevEntry.miner : null;
-                newData[c.id] = { miner: assigned, source: linkedSource.id };
-            });
-            room.memory.containerData = newData;
+            // 清理已死亡矿工的分配
+            const data = room.memory.containerData || {};
+            for (const id in data) {
+                const container = data[id];
+                if (container.miner && !Game.creeps[container.miner]) {
+                    container.miner = null;
+                    console.log(`Container ${id} 的矿工已死亡，释放分配`);
+                }
+            }
+        } catch (error) {
+            console.log(`Error in containerManager.run: ${error.message}`);
         }
+    },
+
+    /** 扫描房间内的 container 并更新数据 */
+    scan(room) {
+        if (!room.memory.containerData) {
+            room.memory.containerData = {};
+        }
+
+        const sources = room.find(FIND_SOURCES);
+        const containers = /** @type {StructureContainer[]} */ (room.find(FIND_STRUCTURES, {
+            filter: s =>
+                s.structureType === STRUCTURE_CONTAINER &&
+                sources.some(src => s.pos.inRangeTo(src, 1))
+        }));
+
+        // 清理已不存在的 container 数据
+        for (const id in room.memory.containerData) {
+            if (!containers.find(c => c.id === id)) {
+                console.log(`Container ${id} 不再存在，清理数据`);
+                delete room.memory.containerData[id];
+            }
+        }
+
+        // 更新或添加新的 container 数据
+        containers.forEach(c => {
+            const linkedSource = sources.find(src => c.pos.inRangeTo(src, 1));
+            if (!room.memory.containerData[c.id]) {
+                room.memory.containerData[c.id] = {
+                    miner: null,  // 当前分配的矿工名称
+                    source: linkedSource.id,
+                    lastAssignTime: Game.time,  // 记录分配时间
+                    priority: this._calculatePriority(c, linkedSource)  // 容器优先级
+                };
+            } else if (!room.memory.containerData[c.id].miner) {
+                // 只更新未分配矿工的容器优先级
+                room.memory.containerData[c.id].source = linkedSource.id;
+                room.memory.containerData[c.id].priority = this._calculatePriority(c, linkedSource);
+            }
+        });
+
+        return containers.length;
+    },
+
+    /** 计算容器优先级 */
+    _calculatePriority(container, source) {
+        // 优先级基于：
+        // 1. 能量源剩余能量
+        // 2. 到 spawn 的距离
+        // 3. 容器状态
+        const spawns = container.room.find(FIND_MY_SPAWNS);
+        if (!spawns.length) return 0;
+
+        const distanceToSpawn = container.pos.getRangeTo(spawns[0]);
+        const sourceEnergy = source.energy;
+        const containerHealth = container.hits / container.hitsMax;
+
+        return (sourceEnergy / 3000) * 0.4 +  // 能量权重 40%
+               (1 - distanceToSpawn / 50) * 0.4 +  // 距离权重 40%
+               containerHealth * 0.2;  // 容器健康度权重 20%
     },
 
     /** 返回所有注册容器的 ID 数组 */
@@ -33,138 +86,64 @@ const containerManager = {
             : [];
     },
 
-    /** 分配一个空闲 container 给矿工，返回 Structure 对象或 null */
+    /**
+     * 分配一个空闲的 container 给矿工
+     * @param {Room} room - 房间对象
+     * @param {string} minerName - 矿工名称
+     * @returns {StructureContainer|null} 分配的 container 或 null
+     */
     assignMiner(room, minerName) {
-        const data = room.memory.containerData || {};
-        for (const id in data) {
-            if (!data[id].miner) {
-                data[id].miner = minerName;
-                return Game.getObjectById(id);
+        try {
+            // 新矿工出生时扫描一次
+            this.scan(room);
+            
+            const data = room.memory.containerData || {};
+            
+            // 1. 检查矿工是否已有分配
+            for (const id in data) {
+                if (data[id].miner === minerName) {
+                    const container = /** @type {StructureContainer|null} */ (Game.getObjectById(id));
+                    return container;
+                }
             }
+
+            // 2. 按优先级排序并寻找空闲的 container
+            const availableContainers = Object.entries(data)
+                .filter(([_, info]) => !info.miner)
+                .sort(([_, a], [__, b]) => b.priority - a.priority);
+
+            for (const [id, info] of availableContainers) {
+                const container = /** @type {StructureContainer|null} */ (Game.getObjectById(id));
+                if (container) {
+                    info.miner = minerName;
+                    info.lastAssignTime = Game.time;
+                    console.log(`分配矿工 ${minerName} 到 container ${id} (优先级: ${info.priority.toFixed(2)})`);
+                    return container;
+                }
+            }
+
+            return null;
+        } catch (error) {
+            console.log(`Error in assignMiner: ${error.message}`);
+            return null;
         }
-        return null;
     },
 
-    /** 释放矿工的分配（死亡或换矿点时调用） */
+    /** 释放矿工的分配 */
     releaseMiner(room, minerName) {
-        const data = room.memory.containerData || {};
-        for (const id in data) {
-            if (data[id].miner === minerName) {
-                data[id].miner = null;
+        try {
+            const data = room.memory.containerData || {};
+            for (const id in data) {
+                if (data[id].miner === minerName) {
+                    data[id].miner = null;
+                    console.log(`释放矿工 ${minerName} 从 container ${id}`);
+                }
             }
+        } catch (error) {
+            console.log(`Error in releaseMiner: ${error.message}`);
         }
     }
 };
 
 module.exports = containerManager;
-
-// /**
-//  * containerMgr.js
-//  */
-// const containerManager = {
-//     scanInterval: 100, // 較長的掃描間隔，例如 100
-
-//     /**
-//      * 每 scanInterval 掃描一次，更新房間 containerData
-//      */
-//     run(room) {
-//         if (!room.memory.containerData) {
-//             room.memory.containerData = {};
-//             room.memory.containerMinerCounts = {}; // 新增：用於追蹤每個 container 的礦工數量
-//         }
-
-//         if (Game.time % this.scanInterval === 0) {
-//             room.memory._lastContainerScan = Game.time;
-//             const sources = room.find(FIND_SOURCES);
-//             const containers = room.find(FIND_STRUCTURES, {
-//                 filter: s =>
-//                     s.structureType === STRUCTURE_CONTAINER &&
-//                     sources.some(src => s.pos.inRangeTo(src, 1))
-//             });
-
-//             const newData = {};
-//             containers.forEach(c => {
-//                 const linkedSource = sources.find(src => c.pos.inRangeTo(src, 1));
-//                 const prevMiner = room.memory.containerData[c.id] ? room.memory.containerData[c.id].miner : null;
-//                 newData[c.id] = { miner: prevMiner, source: linkedSource.id }; // 保留現有的 miner 分配
-//             });
-//             room.memory.containerData = newData;
-//         }
-//     },
-
-//     /**
-//      * 返回所有註冊容器的 ID 陣列
-//      */
-//     getContainers(room) {
-//         return room.memory.containerData ? Object.keys(room.memory.containerData) : [];
-//     },
-
-//     /**
-//       * 分配一個 container 給礦工，返回 Structure 對象或 null
-//       * 現在會優先分配給礦工數量最少的 container
-//       */
-//     assignMiner(room, minerName) {
-//         const data = room.memory.containerData || {};
-//         const containerMinerCounts = room.memory.containerMinerCounts || {};
-//         let minMinerCount = Infinity;
-//         let targetContainerId = null;
-//         let assignedContainerId = null;
-
-//         // 找出是否有已經分配給該 miner 的 container
-//         for (const id in data) {
-//             if (data[id].miner === minerName) {
-//                 assignedContainerId = id;
-//                 return Game.getObjectById(assignedContainerId);
-//             }
-//         }
-
-//         // 找出礦工數量最少的 container
-//         for (const id in data) {
-//             const container = Game.getObjectById(id);
-//             if (!container) {
-//                 continue; // 容器可能不存在，跳過
-//             }
-//             const minerCount = containerMinerCounts[id] || 0; // Get current miner count, default to 0
-//             if (minerCount < minMinerCount) {
-//                 minMinerCount = minerCount;
-//                 targetContainerId = id;
-//             }
-//         }
-
-//         if (targetContainerId) {
-//             // Assign the miner to the container
-//             data[targetContainerId].miner = minerName;
-//             room.memory.containerData[targetContainerId].miner = minerName;  // 确保数据一致
-//             // 更新 container 的礦工數量
-//             if (!room.memory.containerMinerCounts[targetContainerId]) {
-//                 room.memory.containerMinerCounts[targetContainerId] = 0;
-//             }
-//             room.memory.containerMinerCounts[targetContainerId]++;
-
-//             return Game.getObjectById(targetContainerId);
-//         }
-//         return null;
-//     },
-
-//     /**
-//      * 釋放礦工的分配（死亡或換礦點時調用）
-//      */
-//     releaseMiner(room, minerName) {
-//         const data = room.memory.containerData || {};
-//         for (const id in data) {
-//             if (data[id].miner === minerName) {
-//                 data[id].miner = null;
-//                 // 更新 container 的礦工數量
-//                 if (room.memory.containerMinerCounts && room.memory.containerMinerCounts[id]) {
-//                     room.memory.containerMinerCounts[id]--;
-//                     if (room.memory.containerMinerCounts[id] <= 0) {
-//                         delete room.memory.containerMinerCounts[id]; // Clean up if count is 0
-//                     }
-//                 }
-//             }
-//         }
-//     }
-// };
-
-// module.exports = containerManager;
 

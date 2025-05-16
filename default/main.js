@@ -24,6 +24,7 @@ const taskDecision = require('taskDecision');
 const carrierMission = require('carrierMission');
 const controllerContainerScan = require('controllerContainerScan');
 const dc = require('dataCollector')
+const roadPlanner = require('roadPlanner');
 
 const warSpawn = require('warSpawn')
 

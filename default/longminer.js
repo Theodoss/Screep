@@ -21,6 +21,12 @@ const config = {
             rally: { x: 21, y: 41 }, 
             mineId: '5bbcab779099fc012e63392d',
             minerCount: 1  // 第二个矿点需要 1 个矿工
+        },
+        { 
+            roomName: 'W25N48', 
+            rally: { x: 23, y: 17 }, 
+            mineId: '5bbcab889099fc012e633b76',
+            minerCount: 2  // 第三个矿点需要 2 个矿工
         }
     ]
 };
@@ -34,52 +40,51 @@ function getTotalMinerCount() {
 }
 
 /**
+ * 获取指定矿点的当前矿工数量
+ * @param {number} targetIndex - 矿点索引
+ * @returns {number} 当前矿工数量
+ */
+function getCurrentMinerCount(targetIndex) {
+    let count = 0;
+    for (let name in Game.creeps) {
+        const creep = Game.creeps[name];
+        if (creep.memory.role === 'ldminer' && creep.memory.targetIndex === targetIndex) {
+            count++;
+        }
+    }
+    return count;
+}
+
+/**
  * 为矿工分配合适的矿点
  * @param {Creep} creep - 需要分配的矿工
  * @returns {number} 分配的矿点索引
  */
 function assignMinerToTarget(creep) {
-    if (!Memory.longMinerAssignments) Memory.longMinerAssignments = {};
-    
-    // 清理已死亡的矿工记录
-    for (let name in Memory.longMinerAssignments) {
-        if (!Game.creeps[name]) {
-            delete Memory.longMinerAssignments[name];
-        }
-    }
-    
-    // 如果已分配则直接返回
-    if (Memory.longMinerAssignments[creep.name] !== undefined) {
-        return Memory.longMinerAssignments[creep.name];
-    }
-
-    // 统计每个矿点当前分配的矿工数量
-    const currentAssignments = {};
-    for (let i = 0; i < config.targets.length; i++) {
-        currentAssignments[i] = 0;
-    }
-    
-    // 计算现有分配
-    for (let minerName in Memory.longMinerAssignments) {
-        const assignment = Memory.longMinerAssignments[minerName];
-        if (assignment !== undefined) {
-            currentAssignments[assignment]++;
+    // 如果已经分配了目标，且目标有效，继续使用当前目标
+    if (creep.memory.targetIndex !== undefined && 
+        creep.memory.targetIndex < config.targets.length) {
+        const currentCount = getCurrentMinerCount(creep.memory.targetIndex);
+        const target = config.targets[creep.memory.targetIndex];
+        if (currentCount <= target.minerCount) {
+            return creep.memory.targetIndex;
         }
     }
 
-    // 寻找未达到 minerCount 的矿点
+    // 寻找人数未满的矿点
     for (let i = 0; i < config.targets.length; i++) {
+        const currentCount = getCurrentMinerCount(i);
         const target = config.targets[i];
-        if (currentAssignments[i] < (target.minerCount || 1)) {
-            Memory.longMinerAssignments[creep.name] = i;
+        if (currentCount < target.minerCount) {
+            console.log(`分配矿工 ${creep.name} 到矿点 ${i} (${target.roomName} ${target.rally.x},${target.rally.y})`);
             return i;
         }
     }
 
-    // 如果所有矿点都已满，使用循环分配
-    const totalMiners = Object.keys(Memory.longMinerAssignments).length;
+    // 如果所有矿点都已满，返回循环分配的位置
+    const totalMiners = _.filter(Game.creeps, c => c.memory.role === 'ldminer').length;
     const targetIdx = totalMiners % config.targets.length;
-    Memory.longMinerAssignments[creep.name] = targetIdx;
+    console.log(`所有矿点都已满，将矿工 ${creep.name} 分配到矿点 ${targetIdx}`);
     return targetIdx;
 }
 
