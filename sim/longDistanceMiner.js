@@ -5,8 +5,8 @@ const config = {
     homeRoom: 'W25N47',           // 主房间名称
     homeStorageId: '68173618154309283cf96ead',// 主房间 Storage 的 ID
     remotes: [                  // 远程矿点配置列表
-      { roomName: 'W26N47', sourceId: '5bbcab779099fc012e63392b', containerPos: { x:29, y:17 } },
-    //   { roomName: 'W7N5', sourceId: '57eae1d5077f3a8260dc2a8f', containerPos: { x:22, y:15 } }
+      { roomName: 'W26N47', sourceId: '5bbcab779099fc012e63392b', containerPos: { x:29, y:17 }, minerCount: 2 },
+      { roomName: 'W7N5', sourceId: '57eae1d5077f3a8260dc2a8f', containerPos: { x:22, y:15 }, minerCount: 1 }
     ]
   };
 

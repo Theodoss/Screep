@@ -1,11 +1,10 @@
-
-
 /**
  * spawnCreeps.js
  */
 
 const containerManager = require('containerMgr'); // Assuming this exists
 const controllerContainerScan = require('controllerContainerScan'); // Assuming this exists
+const { getTotalMinerCount } = require('longminer');
 
 // ... (Previous code remains the same, but included here for context)
 
@@ -163,7 +162,7 @@ function spawnCreeps(spawn) {
             carrier: 1,
             b_carrier: 0,
             upgrader: 1,
-            ldminer: 2,
+            ldminer: getTotalMinerCount(),
             scout: 0,
         };
     }

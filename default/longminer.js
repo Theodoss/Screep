@@ -1,312 +1,39 @@
-
-// const behaver = require('behaver');
-
-// const config = {
-//   homeRoom: 'W25N47',
-//   storageId: '68173618154309283cf96ead',
-//   targets: [
-//     { roomName: 'W26N47', rally: { x: 31, y: 20 }, mineId: '5bbcab779099fc012e63392b' }
-//     // { roomName: 'W26N47', rally: { x: 21, y: 41 }, mineId: '5bbcab779099fc012e63392d' } // 多了空格原本錯誤已修正
-//   ]
-// };
-
-// const longminer = {
-//   run(creep) {
-//     // 初始化 target 索引與狀態機
-//     if (creep.memory.targetIndex == null) creep.memory.targetIndex = 0;
-//     if (!creep.memory.state) creep.memory.state = 'rally';
-
-//     // 初始化全局能量統計
-//     Memory.longdismine = Memory.longdismine || {};
-//     Memory.longdismine.energy_used = Memory.longdismine.energy_used || 0;
-
-//     const idx = creep.memory.targetIndex;
-//     if (idx >= config.targets.length) {
-//       creep.memory.targetIndex = 0;
-//       creep.say('Idle');
-//       return;
-//     }
-
-//     const tc = config.targets[idx];
-//     const mine = Game.getObjectById(tc.mineId);
-//     const storage = Game.getObjectById(config.storageId);
-//     const moveOpts = { reusePath: 10 };
-
-//     switch (creep.memory.state) {
-//       case 'rally': {
-//         if (behaver.tryPickupNearbyEnergy(creep, 2)) break;
-
-//         const rallyPos = new RoomPosition(tc.rally.x, tc.rally.y, tc.roomName);
-//         if (creep.room.name !== tc.roomName || !creep.pos.isEqualTo(rallyPos)) {
-//           creep.moveTo(rallyPos, { reusePath: 12, visualizePathStyle: { stroke: '#ff0000' } });
-//         } else {
-//           creep.memory.state = 'mineing';
-//         }
-//         break;
-//       }
-
-//       case 'mineing': {
-//         if (creep.store.getFreeCapacity(RESOURCE_ENERGY) === 0) {
-//           creep.memory.state = 'deliver';
-//           break;
-//         }
-
-//         if (creep.harvest(mine) === ERR_NOT_IN_RANGE) {
-//           creep.moveTo(mine, { visualizePathStyle: { stroke: '#ffffff' } });
-//         }
-
-//         break;
-//       }
-
-//       case 'deliver': {
-//         if(creep.store.getUsedCapacity(RESOURCE_ENERGY) === 0){creep.memory.state = creep.room.name !== config.homeRoom ? 'mineing' : 'rally';}
-        
-//         if (creep.memory.energyLogged = false){
-//           const delta = creep.memory.prevEnergy - creep.store.getUsedCapacity[RESOURCE_ENERGY];
-//           if (delta > 0) {
-//             Memory.longdismine.energy_used += delta;
-//           }
-//           creep.memory.energyLogged = true
-//         }
-//         // 優先修附近道路
-//         const roads = creep.pos.findInRange(FIND_STRUCTURES, 2, {
-//           filter: s => s.structureType === STRUCTURE_ROAD && s.hits < s.hitsMax
-//         });
-//         if (roads.length > 0) {
-//           creep.repair(roads[0]);
-//           creep.memory.energyLogged = false
-//           creep.memory.prevEnergy = creep.store.getUsedCapacity[RESOURCE_ENERGY]
-//           return;
-//         }
-
-//         // 嘗試交付能量給優先結構
-//         if (creep.room.name === config.homeRoom && creep.pos.x >= 29) {
-//           const targets = creep.pos.findInRange(FIND_STRUCTURES, 2, {
-//             filter: s =>
-//               (s.structureType === STRUCTURE_EXTENSION ||
-//               s.structureType === STRUCTURE_SPAWN ||
-//               s.structureType === STRUCTURE_TOWER ||
-//               s.structureType === STRUCTURE_CONTAINER) &&
-//               s.store.getFreeCapacity(RESOURCE_ENERGY) > 0
-//           });
-//           if (targets.length > 0) {
-//             if (creep.transfer(targets[0], RESOURCE_ENERGY) !== OK) {
-//               creep.moveTo(targets[0], moveOpts);
-//             }
-//             else {creep.memory.energyLogged = false
-//               creep.memory.prevEnergy = creep.store.getUsedCapacity[RESOURCE_ENERGY]
-//             }
-//             return;
-//           }
-//         }
-
-//         // 本基地內才蓋路
-        
-//           const sites = creep.pos.findInRange(FIND_CONSTRUCTION_SITES, 2, {
-//             filter: s => s.structureType === STRUCTURE_ROAD
-//           });
-//           if (sites.length > 0) {
-//             if (creep.build(sites[0]) !== OK) {
-//               creep.moveTo(sites[0], moveOpts);
-//             }else {creep.memory.energyLogged = false
-//               creep.memory.prevEnergy = creep.store.getUsedCapacity[RESOURCE_ENERGY]
-//             }
-//             return;
-//           }
-        
-
-//         // 最後送回 storage
-//         if (storage && creep.store[RESOURCE_ENERGY] > 0) {
-//           if (creep.transfer(storage, RESOURCE_ENERGY) !== OK) {
-//             creep.moveTo(storage, moveOpts);
-//           } else {creep.memory.energyLogged = false
-//             creep.memory.prevEnergy = creep.store.getUsedCapacity[RESOURCE_ENERGY]
-//           }
-//         } 
-
-//         break;
-//       }
-//     }
-
-//     // ✅ 單次統計能量交付，避免重複、考慮死亡
-//     if (creep.memory.state === 'deliver') {
-//       if (creep.memory.prevEnergy == null) {
-//         // 第一次進入 deliver 階段，記錄初始能量與設定旗標
-//         creep.memory.energyLogged = true;
-//       } 
-//     } else {
-//       // 只要離開 deliver 就清空記錄
-//       delete creep.memory.prevEnergy;
-//       delete creep.memory.energyLogged;
-//     }
-//   }
-// };
-
-// module.exports = longminer;
-
-
-
-// const behaver = require('behaver');
-
-// const config = {
-//     homeRoom: 'W25N47',
-//     storageId: '68173618154309283cf96ead',
-//     targets: [
-//         { roomName: 'W26N47', rally: { x: 31, y: 20 }, mineId: '5bbcab779099fc012e63392b' }
-//         // { roomName: 'W26N47', rally: { x: 21, y: 41 }, mineId: '5bbcab779099fc012e63392d' }
-//     ]
-// };
-
-// const longminer = {
-//     run(creep) {
-//         // 初始化 target 索引與狀態機
-//         if (creep.memory.targetIndex == null) creep.memory.targetIndex = 0;
-//         if (!creep.memory.state) creep.memory.state = 'rally';
-
-//         // 初始化全局能量統計
-//         Memory.longdismine = Memory.longdismine || {};
-//         Memory.longdismine.energy_used = Memory.longdismine.energy_used || 0;
-
-//         const idx = creep.memory.targetIndex;
-//         if (idx >= config.targets.length) {
-//             creep.memory.targetIndex = 0;
-//             creep.say('Idle');
-//             return;
-//         }
-
-//         const tc = config.targets[idx];
-//         const mine = Game.getObjectById(tc.mineId);
-//         const storage = Game.getObjectById(config.storageId);
-//         const moveOpts = { reusePath: 10 };
-
-//         switch (creep.memory.state) {
-//             case 'rally': {
-//                 if (behaver.tryPickupNearbyEnergy(creep, 2)) break;
-
-//                 const rallyPos = new RoomPosition(tc.rally.x, tc.rally.y, tc.roomName);
-//                 if (creep.room.name !== tc.roomName || !creep.pos.isEqualTo(rallyPos)) {
-//                     creep.moveTo(rallyPos, { reusePath: 12, visualizePathStyle: { stroke: '#ff0000' } });
-//                 } else {
-//                     creep.memory.state = 'mineing';
-//                 }
-//                 break;
-//             }
-
-//             case 'mineing': {
-//                 if (creep.store.getFreeCapacity(RESOURCE_ENERGY) === 0) {
-//                     creep.memory.state = 'deliver';
-//                     creep.memory.energyBeforeAction = creep.store.getUsedCapacity(RESOURCE_ENERGY); // 記錄滿載能量
-//                     break;
-//                 }
-
-//                 if (creep.harvest(mine) === ERR_NOT_IN_RANGE) {
-//                     creep.moveTo(mine, { visualizePathStyle: { stroke: '#ffffff' } });
-//                 }
-
-//                 break;
-//             }
-
-//             case 'deliver': {
-//                 if (creep.store.getUsedCapacity(RESOURCE_ENERGY) === 0) {
-//                     creep.memory.state = creep.room.name !== config.homeRoom ? 'mineing' : 'rally';
-//                     delete creep.memory.energyBeforeAction; // 清除臨時能量記錄
-//                     break;
-//                 }
-
-//                 // 檢查上一個 tick 是否記錄了能量
-//                 if (creep.memory.energyBeforeAction !== undefined) {
-//                     const currentEnergy = creep.store.getUsedCapacity(RESOURCE_ENERGY);
-//                     const delta = creep.memory.energyBeforeAction - currentEnergy;
-
-//                     // 如果能量減少了（delta > 0），則累加到統計中
-//                     if (delta > 0) {
-//                         Memory.longdismine.energy_used += delta;
-//                     }
-
-//                     // 清除臨時能量記錄，為下一個可能的動作做準備
-//                     delete creep.memory.energyBeforeAction;
-//                 }
-
-//                 // 優先修附近道路
-//                 const roads = creep.pos.findInRange(FIND_STRUCTURES, 2, {
-//                     filter: s => s.structureType === STRUCTURE_ROAD && s.hits < s.hitsMax
-//                 });
-//                 if (roads.length > 0) {
-//                     if (creep.repair(roads[0]) === OK) {
-//                         // 能量變化將在下一個 tick 處理
-//                         creep.memory.energyBeforeAction = creep.store.getUsedCapacity(RESOURCE_ENERGY);
-//                     }
-//                     return;
-//                 }
-
-//                 // 嘗試交付能量給優先結構
-//                 if (creep.room.name === config.homeRoom && creep.pos.x >= 29) {
-//                     const targets = creep.pos.findInRange(FIND_STRUCTURES, 2, {
-//                         filter: s =>
-//                             (s.structureType === STRUCTURE_EXTENSION ||
-//                                 s.structureType === STRUCTURE_SPAWN ||
-//                                 s.structureType === STRUCTURE_TOWER ||
-//                                 s.structureType === STRUCTURE_CONTAINER) &&
-//                             s.store.getFreeCapacity(RESOURCE_ENERGY) > 0
-//                     });
-//                     if (targets.length > 0) {
-//                         if (creep.transfer(targets[0], RESOURCE_ENERGY) === OK) {
-//                             // 能量變化將在下一個 tick 處理
-//                             creep.memory.energyBeforeAction = creep.store.getUsedCapacity(RESOURCE_ENERGY);
-//                         } else {
-//                             creep.moveTo(targets[0], moveOpts);
-//                         }
-//                         return;
-//                     }
-//                 }
-
-//                 // 本基地內才蓋路
-//                 const sites = creep.pos.findInRange(FIND_CONSTRUCTION_SITES, 2, {
-//                     filter: s => s.structureType === STRUCTURE_ROAD
-//                 });
-//                 if (sites.length > 0) {
-//                     if (creep.build(sites[0]) === OK) {
-//                         // 能量變化將在下一個 tick 處理
-//                         creep.memory.energyBeforeAction = creep.store.getUsedCapacity(RESOURCE_ENERGY);
-//                     } else {
-//                         creep.moveTo(sites[0], moveOpts);
-//                     }
-//                     return;
-//                 }
-
-//                 // 最後送回 storage
-//                 if (storage && creep.store[RESOURCE_ENERGY] > 0) {
-//                     if (creep.transfer(storage, RESOURCE_ENERGY) === OK) {
-//                         // 能量變化將在下一個 tick 處理
-//                         creep.memory.energyBeforeAction = creep.store.getUsedCapacity(RESOURCE_ENERGY);
-//                     } else {
-//                         creep.moveTo(storage, moveOpts);
-//                     }
-//                 }
-
-//                 break;
-//             }
-//         }
-//     }
-// };
-
-// module.exports = longminer;
-
 const behaver = require('behaver');
 
 const config = {
     homeRoom: 'W25N47',
     storageId: '68173618154309283cf96ead',
     targets: [
-        { roomName: 'W26N47', rally: { x: 31, y: 20 }, mineId: '5bbcab779099fc012e63392b' }
-        // { roomName: 'W26N47', rally: { x: 21, y: 41 }, mineId: '5bbcab779099fc012e63392d' }
+        { 
+            roomName: 'W26N47', 
+            rally: { x: 31, y: 20 }, 
+            mineId: '5bbcab779099fc012e63392b',
+            minerCount: 2  // 第一个矿点需要 2 个矿工
+        },
+        { 
+            roomName: 'W26N47', 
+            rally: { x: 21, y: 41 }, 
+            mineId: '5bbcab779099fc012e63392d',
+            minerCount: 1  // 第二个矿点需要 1 个矿工
+        }
     ]
 };
+
+/**
+ * 计算所有远程矿点需要的总矿工数量
+ * @returns {number} 总需求数量
+ */
+function getTotalMinerCount() {
+    return config.targets.reduce((sum, target) => sum + (target.minerCount || 1), 0);
+}
 
 const longminer = {
     run(creep) {
         // 初始化 target 索引與狀態機
-        if (creep.memory.targetIndex == null) creep.memory.targetIndex = 0;
+        if (creep.memory.targetIndex == null) {
+            // 分配矿工到适当的矿点
+            creep.memory.targetIndex = this.assignMinerToTarget(creep);
+        }
         if (!creep.memory.state) creep.memory.state = 'rally';
 
         // 初始化全局能量統計
@@ -441,7 +168,61 @@ const longminer = {
                 break;
             }
         }
+    },
+
+    /**
+     * 为矿工分配合适的矿点
+     * @param {Creep} creep - 需要分配的矿工
+     * @returns {number} 分配的矿点索引
+     */
+    assignMinerToTarget(creep) {
+        if (!Memory.longMinerAssignments) Memory.longMinerAssignments = {};
+        
+        // 清理已死亡的矿工记录
+        for (let name in Memory.longMinerAssignments) {
+            if (!Game.creeps[name]) {
+                delete Memory.longMinerAssignments[name];
+            }
+        }
+        
+        // 如果已分配则直接返回
+        if (Memory.longMinerAssignments[creep.name] !== undefined) {
+            return Memory.longMinerAssignments[creep.name];
+        }
+
+        // 统计每个矿点当前分配的矿工数量
+        const currentAssignments = {};
+        for (let i = 0; i < config.targets.length; i++) {
+            currentAssignments[i] = 0;
+        }
+        
+        // 计算现有分配
+        for (let minerName in Memory.longMinerAssignments) {
+            const assignment = Memory.longMinerAssignments[minerName];
+            if (assignment !== undefined) {
+                currentAssignments[assignment]++;
+            }
+        }
+
+        // 寻找未达到 minerCount 的矿点
+        for (let i = 0; i < config.targets.length; i++) {
+            const target = config.targets[i];
+            if (currentAssignments[i] < (target.minerCount || 1)) {
+                Memory.longMinerAssignments[creep.name] = i;
+                return i;
+            }
+        }
+
+        // 如果所有矿点都已满，使用循环分配
+        const totalMiners = Object.keys(Memory.longMinerAssignments).length;
+        const targetIdx = totalMiners % config.targets.length;
+        Memory.longMinerAssignments[creep.name] = targetIdx;
+        return targetIdx;
     }
 };
 
-module.exports = longminer;
+module.exports = {
+    run: longminer.run,
+    getTotalMinerCount,
+    config
+};
