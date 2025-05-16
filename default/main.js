@@ -10,7 +10,6 @@ const roleRepairer = require('role.repairer');
 const roleMiner = require('role.miner');
 const roleCarrier = require('role.carrier');
 const towerRun  = require('tower');
-const ldminer = require('longDistanceMiner');
 const longminer = require('longminer');
 const dismantle = require('wallDismantler');
 const { linkTransfer, Linkconfig } = require('./linkTransfer');
@@ -32,6 +31,7 @@ const { spawnScheduler: ss } = require('spawnScheduler');
 const am = require('attackMission');
 global.extensionPlanner= extensionPlanner;
 
+const MinerStats = require('creepStats');
 
 const roomName ='W25N47'
 const room = Game.rooms['W25N47'];
@@ -41,6 +41,9 @@ module.exports.loop = function () {
     if (Memory.longdismine === undefined) Memory.longdismine = {};
     if (Memory.longdismine.energy_used === undefined) Memory.longdismine.energy_used = 0;
     if (Memory.longdismine.count === undefined) Memory.longdismine.count = 0;
+
+    // 初始化矿工统计系统
+    MinerStats.init();
 
     // Game.creeps['scout_69232023'].moveTo(   new RoomPosition(27, 20, 'W26N47'),   { reusePath: 30, visualizePathStyle: { stroke: '#ffffff' } } );
     for (let name in Game.rooms) {
