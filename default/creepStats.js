@@ -4,7 +4,7 @@
  * Creep 效能统计系统 - 专注于矿工效能分析
  */
 
-const { linkTransfer } = require("./linkTransfer");
+// const { linkTransfer } = require("./linkTransfer");
 
 const MinerStats = {
     // 初始化统计数据结构
@@ -49,7 +49,8 @@ const MinerStats = {
                     startTime: Game.time,
                     startPos: creep.pos,
                     energyCollected: 0
-                }
+                },
+                targetIndex: creep.memory.targetIndex
             };
         }
     },
@@ -92,23 +93,45 @@ const MinerStats = {
         if (creep.memory.delivering && currentStore === 0) {
             stats.totalEnergyDelivered += stats.currentCycle.energyCollected;
         }
+
+        if (creep.store.getUsedCapacity(RESOURCE_ENERGY) === 0) {
+            // 完成一个周期，更新统计
+            if (creep.memory.minerStats && creep.memory.minerStats.currentCycleEnergy) {
+                if (!Memory.minerStats) Memory.minerStats = { miners: {} };
+                if (!Memory.minerStats.miners[creep.name]) Memory.minerStats.miners[creep.name] = { totalEnergyDelivered: 0 };
+                Memory.minerStats.miners[creep.name].totalEnergyDelivered += creep.memory.minerStats.currentCycleEnergy;
+                creep.memory.minerStats.currentCycleEnergy = 0;
+            }
+        }
+
+        // 更新目标索引
+        stats.targetIndex = creep.memory.targetIndex;
     },
 
     // 生成效能报告
     generateReport() {
         let report = '=== 矿工效能报告 ===\n';
-        report += 'Creep名称 | 身体部件(W/M/C) | 路径距离 | 实际移动Tick | 循环次数 | 净能量收益 | ROI\n';
-        report += '---------|----------------|------------|--------------|------------|------------|----\n';
+        report += '矿点ID | 身体部件(W/M/C) | 路径距离 | 移动Tick | 循环次数 | 净收益  | ROI\n';
+        report += '-------+----------------+----------+----------+----------+---------+-------\n';
 
         for (const name in Memory.minerStats.miners) {
             const m = Memory.minerStats.miners[name];
             const lifetime = Game.time - m.birthTime;
             const netEnergy = m.totalEnergyDelivered - m.productionCost;
             const roi = ((netEnergy / m.productionCost) * 100).toFixed(1);
+            const targetId = m.targetIndex !== undefined ? m.targetIndex : '?';
             
-            let line = `${name} | ${m.bodyParts.work}/${m.bodyParts.move}/${m.bodyParts.carry} | `;
-            line += `${m.pathDistance} | ${m.travelTicks} | ${m.cycleCount} | ${netEnergy} | ${roi}%\n`;
-            report += linkTransfer;
+            // 使用 padStart/padEnd 来对齐各列
+            const formattedTargetId = targetId.toString().padStart(3, ' ').padEnd(7, ' ');
+            const formattedBody = `${m.bodyParts.work}/${m.bodyParts.move}/${m.bodyParts.carry}`.padEnd(16, ' ');
+            const formattedPath = m.pathDistance.toString().padStart(8, ' ').padEnd(10, ' ');
+            const formattedTicks = m.travelTicks.toString().padStart(8, ' ').padEnd(10, ' ');
+            const formattedCycles = m.cycleCount.toString().padStart(8, ' ').padEnd(10, ' ');
+            const formattedEnergy = netEnergy.toString().padStart(7, ' ').padEnd(9, ' ');
+            const formattedRoi = (roi + '%').padStart(6, ' ');
+
+            let line = `${formattedTargetId}|${formattedBody}|${formattedPath}|${formattedTicks}|${formattedCycles}|${formattedEnergy}|${formattedRoi}\n`;
+            report += line;
         }
 
         return report;
@@ -122,6 +145,12 @@ const MinerStats = {
             }
         }
     }
+};
+
+// 添加全局命令
+global.minerStats = {
+    cleanup: () => MinerStats.cleanup(),
+    report: () => console.log(MinerStats.generateReport())
 };
 
 module.exports = MinerStats; 

@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * spawnCreeps.js
  */
@@ -104,8 +105,10 @@ function spawnCreeps(spawn) {
     } else {
         // 动态生成最优配置，基于最大可用能量（spawn + extensions）并分配剩余能量
         var maxEnergy = room.energyCapacityAvailable;
-        console.log("maxEnergy NOW is")
-        console.log(maxEnergy)
+        if (Game.time % 1000 ===0) 
+            {console.log("maxEnergy NOW is")
+            console.log(maxEnergy)};
+        
         var maxEnergy = 1300;
         const baseCost = 100 + 50 + 50; // WORK + CARRY + MOVE
         const units = Math.floor(maxEnergy / baseCost);

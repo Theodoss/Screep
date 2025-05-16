@@ -1,3 +1,4 @@
+// @ts-nocheck
 /* main.js
 用來全局管理,
 */
@@ -36,7 +37,14 @@ const MinerStats = require('creepStats');
 const roomName ='W25N47'
 const room = Game.rooms['W25N47'];
 
+
 module.exports.loop = function () {
+//報告生產
+    if (Game.time % 100 === 0) {
+        console.log(MinerStats.generateReport());
+    }
+
+
     //初始化長距能量傳輸狀態統計記憶
     if (Memory.longdismine === undefined) Memory.longdismine = {};
     if (Memory.longdismine.energy_used === undefined) Memory.longdismine.energy_used = 0;
@@ -217,9 +225,13 @@ module.exports.loop = function () {
             longminer.run(creep);
         }
 
+
         else {
             am.run(creep);
         }
+
+
+
 
     }
 }

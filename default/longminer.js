@@ -118,6 +118,18 @@ function run(creep) {
         MinerStats.update(creep, mine.pos);
     }
 
+    // 检查上一个tick的能量变化
+    if (creep.memory.lastEnergy !== undefined) {
+        const energyDelta = creep.store.getUsedCapacity(RESOURCE_ENERGY) - creep.memory.lastEnergy;
+        if (energyDelta > 0 && creep.memory.state === 'mineing') {
+            // 采矿获得能量
+            if (!creep.memory.minerStats) creep.memory.minerStats = {};
+            creep.memory.minerStats.currentCycleEnergy = (creep.memory.minerStats.currentCycleEnergy || 0) + energyDelta;
+        }
+    }
+    // 记录当前能量用于下一个tick比较
+    creep.memory.lastEnergy = creep.store.getUsedCapacity(RESOURCE_ENERGY);
+
     switch (creep.memory.state) {
         case 'rally': {
             if (behaver.tryPickupNearbyEnergy(creep, 2)) break;
@@ -146,6 +158,14 @@ function run(creep) {
 
         case 'deliver': {
             if (creep.store.getUsedCapacity(RESOURCE_ENERGY) === 0) {
+                // 完成一个周期，更新统计
+                if (creep.memory.minerStats && creep.memory.minerStats.currentCycleEnergy) {
+                    if (!Memory.minerStats) Memory.minerStats = { miners: {} };
+                    if (!Memory.minerStats.miners[creep.name]) Memory.minerStats.miners[creep.name] = { totalEnergyDelivered: 0 };
+                    Memory.minerStats.miners[creep.name].totalEnergyDelivered += creep.memory.minerStats.currentCycleEnergy;
+                    creep.memory.minerStats.currentCycleEnergy = 0;
+                }
+                
                 creep.memory.delivering = false;
                 creep.memory.state = creep.room.name !== config.homeRoom ? 'mineing' : 'rally';
                 break;
@@ -205,11 +225,6 @@ function run(creep) {
             }
             break;
         }
-    }
-
-    // 每 100 ticks 显示一次效能报告
-    if (Game.time % 100 === 0) {
-        console.log(MinerStats.generateReport());
     }
 }
 

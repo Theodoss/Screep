@@ -21,13 +21,29 @@ const COST_MOVE = 50;
 const COST_CARRY = 50;
 const COST_WORK = 100;
 
+// 固定 body 配置
+// ss.schedule('scout', 1, 'tougher');
+const fixedBodyConfigs = {
+    scout: {
+        basic: [MOVE],  // 基础配置：1个MOVE
+        tough: [TOUGH, TOUGH, TOUGH, MOVE],  // 带 TOUGH 的配置
+        tougher: [TOUGH, TOUGH, TOUGH, TOUGH, TOUGH, MOVE]  // 更多 TOUGH 的配置
+    }
+};
+
 /**
  * 根据角色和房间能量容量生成 body 数组。
- * @param {string} role - 'attacker' | 'ranger' | 'healer' | 其他
+ * @param {string} role - 'attacker' | 'ranger' | 'healer' | 'scout' | 其他
  * @param {number} capacity - 房间最大能量
+ * @param {string} [variant] - 对于特定角色的变体配置，如 'tough' 表示带 TOUGH 的 scout
  * @returns {BodyPartConstant[]} body
  */
-function generateBody(role, capacity) {
+function generateBody(role, capacity, variant = 'basic') {
+    // 如果是 scout 且有固定配置，直接返回对应配置
+    if (role === 'scout' && fixedBodyConfigs.scout[variant]) {
+        return fixedBodyConfigs.scout[variant];
+    }
+
     const body = [];
     let remainingCapacity = capacity;
 
@@ -35,7 +51,7 @@ function generateBody(role, capacity) {
     const partOrder = [];
     if (role === 'attacker') partOrder.push(TOUGH, ATTACK, MOVE);
     else if (role === 'ranger') partOrder.push(RANGED_ATTACK, MOVE);
-    else if (role === 'healer') partOrder.push(HEAL, MOVE);  // 加入 healer 的部件順序
+    else if (role === 'healer') partOrder.push(HEAL, MOVE);
     else partOrder.push(WORK, CARRY, MOVE);
 
     // 盡可能添加部件
@@ -48,7 +64,7 @@ function generateBody(role, capacity) {
             case MOVE: return COST_MOVE;
             case CARRY: return COST_CARRY;
             case WORK: return COST_WORK;
-            default: return Infinity; // 避免錯誤的部件導致無限迴圈
+            default: return Infinity;
         }
     }))) {
         for (const part of partOrder) {
@@ -74,31 +90,20 @@ function generateBody(role, capacity) {
         body.push(MOVE);
     }
 
-    // 重新排序 body 部件，HEAL 優先級高於 MOVE
-    const toughParts = body.filter(part => part === TOUGH);
-    const attackParts = body.filter(part => part === ATTACK);
-    const rangedAttackParts = body.filter(part => part === RANGED_ATTACK);
-    const healParts = body.filter(part => part === HEAL); // 確保 HEAL 被正確處理
-    const moveParts = body.filter(part => part === MOVE);
-    const carryParts = body.filter(part => part === CARRY);
-    const workParts = body.filter(part => part === WORK);
-
-    return [
-        ...toughParts,
-        ...attackParts,
-        ...rangedAttackParts,
-        ...healParts, // HEAL 放在 MOVE 前面
-        ...moveParts,
-        ...carryParts,
-        ...workParts,
-    ];
+    return body;
 }
 
 const spawnScheduler = {
-    schedule(role, count) {
+    /**
+     * 排程生产指定数量的特定角色 creep
+     * @param {string} role - creep 的角色
+     * @param {number} count - 要生产的数量
+     * @param {string} [variant] - 特定角色的变体配置（如 'tough' 表示带 TOUGH 的 scout）
+     */
+    schedule(role, count, variant = 'basic') {
         if (!Memory.spawnQueue) Memory.spawnQueue = [];
-        Memory.spawnQueue.push({ role, count, priority: 0 }); // 加入優先級，預設為 0
-        console.log(`Scheduled spawn: ${count} x ${role}`);
+        Memory.spawnQueue.push({ role, count, priority: 0, variant }); // 加入變體配置
+        console.log(`Scheduled spawn: ${count} x ${role}${variant !== 'basic' ? ` (${variant})` : ''}`);
     },
 
     clear() {
@@ -112,33 +117,30 @@ const spawnScheduler = {
         // 使用迴圈處理所有 spawn
         for (const spawnName in Game.spawns) {
             const spawn = Game.spawns[spawnName];
-            if (spawn.spawning) continue; // 如果 spawn 忙碌，則跳過
+            if (spawn.spawning) continue;
 
             // 找到最高優先級的任務
             const task = Memory.spawnQueue.filter(t => t.count > 0).sort((a, b) => b.priority - a.priority)[0];
-            if (!task) continue; // 如果沒有任務，繼續下一個 spawn
+            if (!task) continue;
 
             const capacity = spawn.room.energyCapacityAvailable;
-            const body = generateBody(task.role, capacity);
+            const body = generateBody(task.role, capacity, task.variant);
             const name = `${task.role}_${Game.time}`;
             const result = spawn.spawnCreep(body, name, { memory: { role: task.role } });
             if (result === OK) {
                 task.count -= 1;
                 console.log(`Spawning ${task.role}: ${name}, remaining ${task.count}`);
             } else if (result === ERR_NOT_ENOUGH_ENERGY) {
-                // 如果能量不足，不從佇列中移除任務，等待下次執行
                 console.log(`Not enough energy to spawn ${task.role} at ${spawn.name}`);
             } else {
-                // 處理其他錯誤
                 console.error(`Error spawning ${task.role} at ${spawn.name}: ${result}`);
-                task.count -= 1; // 發生其他錯誤，移除任務以避免卡住
+                task.count -= 1;
             }
         }
         // 清除已完成的任務
         Memory.spawnQueue = Memory.spawnQueue.filter(t => t.count > 0);
     },
 
-    // 新增設定任務優先級的方法
     setPriority(role, priority) {
         if (!Memory.spawnQueue) return;
         const task = Memory.spawnQueue.find(t => t.role === role);

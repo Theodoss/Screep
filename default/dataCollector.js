@@ -1,3 +1,4 @@
+// @ts-nocheck
 // dataCollector.js
 // 数据收集模块：定期收集关键性能指标并缓存/计算平均值
 

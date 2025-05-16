@@ -1,3 +1,5 @@
+// @ts-nocheck
+
 /**
  * attackMission.js
  * 任務分配器：
@@ -99,6 +101,53 @@ const healerActions = {
     }
 };
 
+const scoutActions = {
+    /**
+     * 侦察单位的行动逻辑
+     * @param {Creep} creep - 要控制的 creep
+     * @returns {boolean} - 表示 creep 是否执行了动作
+     */
+    run(creep) {
+        // 如果没有目标房间，寻找 flag 's'
+        if (!creep.memory.targetRoom) {
+            const scoutFlag = Game.flags['s'];
+            if (scoutFlag) {
+                creep.memory.targetRoom = scoutFlag.pos.roomName;
+                creep.memory.targetPos = { x: scoutFlag.pos.x, y: scoutFlag.pos.y };
+            } else {
+                return false;
+            }
+        }
+
+        // 如果在目标房间
+        if (creep.room.name === creep.memory.targetRoom) {
+            const targetPos = new RoomPosition(
+                creep.memory.targetPos.x,
+                creep.memory.targetPos.y,
+                creep.memory.targetRoom
+            );
+
+            if (!creep.pos.inRangeTo(targetPos, 3)) {
+                creep.moveTo(targetPos, {
+                    reusePath: 20,
+                    visualizePathStyle: { stroke: '#ffffff', opacity: 0.5 }
+                });
+            } else {
+                // 在目标位置附近随机移动
+                creep.move(Math.floor(Math.random() * 4) + 1);
+            }
+        } else {
+            // 移动到目标房间
+            const targetPos = new RoomPosition(25, 25, creep.memory.targetRoom);
+            creep.moveTo(targetPos, {
+                reusePath: 20,
+                visualizePathStyle: { stroke: '#ffffff', opacity: 0.5 }
+            });
+        }
+        return true;
+    }
+};
+
 const attackMission = {
     /** 手动设置跨房间集结点 */
     setRallyPos(x, y, roomName) {
@@ -120,7 +169,9 @@ const attackMission = {
             const m = Memory.attackMission.manualRally;
             rallyPos = new RoomPosition(m.x, m.y, m.roomName);
         } else {
-            const flagName = role === 'attacker' ? 'a' : role === 'ranger' ? 'r' : null;
+            const flagName = role === 'attacker' ? 'a' : 
+                           role === 'ranger' ? 'r' : 
+                           role === 'scout' ? 's' : null;
             if (!flagName || !Game.flags[flagName]) {
                 return null;
             }
@@ -140,6 +191,12 @@ const attackMission = {
     /** 每 tick 调用，执行任务，使用状态机控制：rally -> arm -> regroup -> arm */
     run(creep) {
         const role = creep.memory.role;
+        
+        // 如果是侦察兵，使用特殊的行动逻辑
+        if (role === 'scout') {
+            return scoutActions.run(creep);
+        }
+
         const missionDetails = this.getMissionForRole(role);
 
         if (!missionDetails) {
@@ -268,7 +325,7 @@ const attackMission = {
     findRegroupRallyPoint(creep) {
         // 1. 优先选择之前targetRallyPoint
         if (creep.memory.targetRallySignature) {
-            return new RoomPosition(creep.memory.targetRallySignature.x, creep.memory.targetRallySignature.y, creep.memory.targetRallySignature.roomName);
+            return creep.memory.targetRallySignature;
         }
         // 2. 否则，选择自己当前位置
         return creep.pos;
