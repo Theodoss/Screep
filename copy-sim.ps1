@@ -2,8 +2,8 @@
 $currentPath = $PWD.Path
 
 # 源目录和目标目录
-$sourceDir = Join-Path $currentPath "default"
-$targetDir = Join-Path $currentPath "sim"
+$sourceDir = Join-Path $currentPath "sim"
+$targetDir = Join-Path $currentPath "default"
 
 # 如果目标目录不存在，创建它
 if (-not (Test-Path $targetDir)) {
@@ -13,4 +13,4 @@ if (-not (Test-Path $targetDir)) {
 # 复制所有文件
 Copy-Item -Path "$sourceDir\*" -Destination $targetDir -Recurse -Force
 
-Write-Host "Files copied successfully from 'default' to 'sim'" 
+Write-Host "Files copied successfully from 'sim' to 'default'" 

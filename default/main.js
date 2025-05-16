@@ -14,7 +14,7 @@ const towerRun  = require('tower');
 const longminer = require('longminer');
 const dismantle = require('wallDismantler');
 const { linkTransfer, Linkconfig } = require('./linkTransfer');
-
+const selfWallDismantler = require('selfWallDismantler');
 //任務相關
 const repairManager = require('repairManager');
 const containerMgr = require('containerMgr');
@@ -25,6 +25,7 @@ const carrierMission = require('carrierMission');
 const controllerContainerScan = require('controllerContainerScan');
 const dc = require('dataCollector')
 const roadPlanner = require('roadPlanner');
+const memoryRestore = require('memory_restore'); // 导入内存恢复模块
 
 const warSpawn = require('warSpawn')
 
@@ -40,6 +41,9 @@ const room = Game.rooms['W25N47'];
 
 
 module.exports.loop = function () {
+    // 只运行备份功能，检测和恢复在creep循环中进行
+    memoryRestore.run();
+
 //報告生產
     if (Game.time % 100 === 0) {
         console.log(MinerStats.generateReport());
@@ -88,7 +92,8 @@ module.exports.loop = function () {
         (defenseMode ? warSpawn.spawnWarCreeps(spawn) : spawnManager.spawnCreeps(spawn));
     }
 
-    if (Game.time % 1000 === 0) { // Run cleanup periodically
+    // 减少内存清理频率，让备份系统有时间工作，改为每10000个tick清理一次
+    if (Game.time % 10000 === 0) { // Run cleanup less frequently
             for (var name in Memory.creeps) {
                 if (!Game.creeps[name]) {
                     delete Memory.creeps[name];
@@ -102,6 +107,10 @@ module.exports.loop = function () {
     for(var name in Game.creeps) {
         var creep = Game.creeps[name];
 
+        // 在这里检查和恢复每个creep的内存
+        if (memoryRestore.isCreepMemoryLost(creep)) {
+            memoryRestore.restoreCreepMemory(creep);
+        }
             
         if (creep.room.name === roomName && defenseMode)
             {            
@@ -225,7 +234,9 @@ module.exports.loop = function () {
         else if(creep.memory.role == 'ldminer') {
             longminer.run(creep);
         }
-
+        else if (creep.memory.role === 'selfwdis') {
+            selfWallDismantler.run(creep);
+          }
 
         else {
             am.run(creep);

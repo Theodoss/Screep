@@ -1,5 +1,3 @@
-
-
 // roleCarrier.js
 // 高效版 Carrier：收集墓碑、落地能量、注册容器、储存能量，并按优先级运送到 Spawn/Extension → Tower → Link → Controller 容器 → Storage
 const containerManager = require('containerMgr');
@@ -55,9 +53,9 @@ function findEnergySource(creep) {
             if (!bestContainerObject || pos.getRangeTo(cont) < pos.getRangeTo(bestContainerObject)) {
                 bestContainerObject = cont;
             }
-        }
-    }
-    if (bestContainerObject) return bestContainerObject.id;
+        }
+    }
+    if (bestContainerObject) return bestContainerObject.id;
 
     // 4. Storage
     // 原始逻辑：room.storage.store.getUsedCapacity(RESOURCE_ENERGY) > 0
@@ -104,7 +102,7 @@ function findEnergyTarget(creep) {
             if (closestTower) return closestTower.id;
         }
     }
-    
+    
     // 3. Link (运送到当前房间 Linkconfig 中指定的 "transfer" link)
     // 这个 "transfer" link 通常是靠近能量源的 link 或一个中转 link，它会将能量发送到中央/接收 link。
     // carrier 的任务是填满这个发送 link。
@@ -125,12 +123,7 @@ function findEnergyTarget(creep) {
     if (contIds && contIds.length > 0) {
         const controllerContainers = contIds
             .map((id) => Game.getObjectById(id))
-            // 原始过滤器: c.store.getFreeCapacity(RESOURCE_ENERGY) > creep.store.getFreeCapacity(RESOURCE_ENERGY)
-            // 这表示目标的空余容量必须大于 creep 自身的空余容量。对于送货目标来说，这个条件不寻常。
-            // 通常，送货时会检查目标是否有任何空余空间，或者有足够空间容纳 creep 当前携带的能量。
-            .filter((c) => c && c.structureType === STRUCTURE_CONTAINER && c.store.getFreeCapacity(RESOURCE_ENERGY) > creep.store.getFreeCapacity(RESOURCE_ENERGY));
-            // 建议的替代过滤器:
-            // .filter(c => c && c.structureType === STRUCTURE_CONTAINER && c.store.getFreeCapacity(RESOURCE_ENERGY) >= creep.store.getUsedCapacity(RESOURCE_ENERGY) && creep.store.getUsedCapacity(RESOURCE_ENERGY) > 0);
+            .filter((c) => c && c.structureType === STRUCTURE_CONTAINER && c.store.getFreeCapacity(RESOURCE_ENERGY) > 0);
 
 
         if (controllerContainers.length > 0) {
@@ -162,8 +155,7 @@ const roleCarrier = {
         // 状态机: 'withdraw' 或 'deliver'
         if (creep.memory.state !== 'deliver' && creep.store.getFreeCapacity(RESOURCE_ENERGY) === 0) {
             creep.memory.state = 'deliver';
-            delete creep.memory.sourceId; // 切换到 deliver 时清除 sourceId
-            delete creep.memory.targetId; // 同时清除 targetId
+            delete creep.memory.sourceId; // 只清除来源ID
         } else if (creep.memory.state !== 'withdraw' && creep.store.getUsedCapacity(RESOURCE_ENERGY) === 0) {
             creep.memory.state = 'withdraw';
             delete creep.memory.targetId; // 切换到 withdraw 时清除 targetId
@@ -246,178 +238,3 @@ module.exports = roleCarrier;
 
 
 
-// // roleCarrier.js
-// // 高效版 Carrier：收集墓碑、落地能量、注册容器、储存能量，并按优先级运送到 Spawn/Extension → Tower → Controller 容器 → Storage
-// const containerManager = require('containerMgr');
-// const controllerContainerScan = require('controllerContainerScan');
-
-// const ENERGY_PRIORITY = {
-//     TOMBSTONE: 1,
-//     DROPPED: 2,
-//     CONTAINER: 3,
-//     STORAGE: 4,
-//     SPAWN_EXTENSION: 1,
-//     TOWER: 2,
-//     CONTROLLER_CONTAINER: 3,
-//     STORAGE_DELIVER: 4,
-// };
-
-
-// /**
-//  * 查找能量來源
-//  * @param {Creep} creep
-//  * @returns {Id | null} 能量來源 ID
-//  */
-// function findEnergySource(creep) {
-//     const { room, pos } = creep;
-
-//     // 1. 墓碑
-//     const tomb = pos.findClosestByPath(FIND_TOMBSTONES, {
-//         filter: (t) => t.store.getUsedCapacity(RESOURCE_ENERGY) > 0,
-//     });
-//     if (tomb) return tomb.id;
-
-//     // 2. 地面掉落
-//     const drop = pos.findClosestByPath(FIND_DROPPED_RESOURCES, {
-//         filter: (r) => r.resourceType === RESOURCE_ENERGY,
-//     });
-//     if (drop) return drop.id;
-
-//     // 3. 註冊容器
-//     const regs = containerManager.getContainers(room) || [];
-//     let best = null;
-//     for (const id of regs) {
-//         const cont = Game.getObjectById(id);
-//         if (cont && cont.store.getUsedCapacity(RESOURCE_ENERGY) >= creep.store.getFreeCapacity()) {
-//             if (!best || pos.getRangeTo(cont) < pos.getRangeTo(best)) best = cont;
-//         }
-//     }
-//     if (best) return best.id;
-
-//     // 4. Storage
-//     if (room.storage && room.storage.store.getUsedCapacity(RESOURCE_ENERGY) > 0) {
-//         return room.storage.id;
-//     }
-
-//     return null;
-// }
-
-// /**
-//  * 查找能量目標
-//  * @param {Creep} creep
-//  * @returns {Id | null} 能量目標 ID
-//  */
-// function findEnergyTarget(creep) {
-//     const { room, pos } = creep;
-
-//     // 1. Spawn/Extension ##當位置在x> 29, y <21時
-//     if (creep.pos.x > 29 && creep.pos.y < 21) { // 新增
-//         const spawnExts = room.find(FIND_MY_STRUCTURES, {
-//             filter: (s) =>
-//                 (s.structureType === STRUCTURE_SPAWN || s.structureType === STRUCTURE_EXTENSION) &&
-//                 s.store.getFreeCapacity(RESOURCE_ENERGY) > 0,
-//         });
-//         if (spawnExts.length) return pos.findClosestByPath(spawnExts).id;
-    
-
-
-//         // 2. Tower
-//         const towers = room.find(FIND_STRUCTURES, {
-//             filter: (s) =>
-//                 s.structureType === STRUCTURE_TOWER && s.store.getFreeCapacity(RESOURCE_ENERGY) > 300,
-//         });
-//         if (towers.length) return pos.findClosestByPath(towers).id;
-//     }
-    
-//     // // 3. link
-//     // const linkIds = 
-
-//     // 4. Controller 最近容器，并考虑长距离送能策略, 距離約50格 ##這個動作為主要任務, 但幾乎
-//     const contIds = controllerContainerScan.get(room);
-//     const containers = contIds
-//         .map((id) => Game.getObjectById(id))
-//         .filter((c) => c && c.store.getFreeCapacity(RESOURCE_ENERGY) > creep.store.getFreeCapacity());
-//     if (containers.length) {
-//         const target = containers[0];
-//         const pathLength = creep.pos.findPathTo(target).length; //新增
-//         if (pathLength > 30 && creep.store.getUsedCapacity() !== creep.store.getCapacity()) { // 修改
-//             return null; // 距離大於30，或滿載，先不運送
-//         }
-//         return containers[0].id;
-//     }
-
-//     // 5. Storage
-//     const storages = room.find(FIND_MY_STRUCTURES, { // Change to FIND_MY_STRUCTURES
-//         filter: (s) =>
-//             s.structureType === STRUCTURE_STORAGE && s.store.getFreeCapacity(RESOURCE_ENERGY) > 0,
-//     });
-//     if (storages.length) return pos.findClosestByPath(storages).id;
-
-//     return null;
-// }
-
-// const roleCarrier = {
-//     /** @param {Creep} creep **/
-//     run(creep) {
-//         // 初始化状态
-//         if (!creep.memory.state) {
-//             creep.memory.state = creep.store.getFreeCapacity() > 0 ? 'withdraw' : 'deliver';
-//         }
-
-//         // 获取当前状态
-//         const state = creep.memory.state;
-//         let targetId;
-//         let target;
-
-//         if (state === 'withdraw') {
-//             targetId = creep.memory.sourceId || findEnergySource(creep); // 使用缓存或查找
-//             target = Game.getObjectById(targetId);
-
-//             if (target) {
-//                 const result = creep.withdraw(target, RESOURCE_ENERGY);
-//                 if (result === OK) {
-//                     creep.memory.state = 'deliver';
-//                     delete creep.memory.sourceId; // 清除
-//                 } else if (result === ERR_NOT_IN_RANGE) {
-//                     creep.moveTo(target, { reusePath: 10 });
-//                 }
-//                 //  else { //不处理其他错误，例如资源为空, 下个tick再处理
-//                 //     delete creep.memory.sourceId;  // 移除无效的 sourceId
-//                 // }
-//             } else {
-//                 delete creep.memory.sourceId; // 目标不存在，清除缓存
-//                 // creep.memory.state = 'deliver'; // 没有目标直接切换是不对的
-//             }
-//             if (creep.store.getFreeCapacity() === 0) {
-//                 creep.memory.state = 'deliver';
-//                 delete creep.memory.sourceId;
-//             }
-//         } else {
-//             targetId = creep.memory.targetId || findEnergyTarget(creep); // 使用缓存或查找
-//             target = Game.getObjectById(targetId);
-
-//             if (target) {
-//                 const result = creep.transfer(target, RESOURCE_ENERGY);
-//                 if (result === OK) {
-//                     creep.memory.state = 'withdraw';
-//                     delete creep.memory.targetId;
-//                 } else if (result === ERR_NOT_IN_RANGE) {
-//                     creep.moveTo(target, { reusePath: 10 });
-//                 }
-//                 // else{
-//                 //     delete creep.memory.targetId;
-//                 // }
-//             } else {
-//                 delete creep.memory.targetId; // 目标不存在，清除缓存
-//                 creep.memory.state = 'withdraw';  //距離太遠返回withdraw
-//             }
-
-//             if (creep.store.getUsedCapacity(RESOURCE_ENERGY) === 0) {
-//                 creep.memory.state = 'withdraw';
-//                 delete creep.memory.targetId;
-//             }
-//         }
-//     },
-// };
-
-// module.exports = roleCarrier;

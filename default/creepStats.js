@@ -79,27 +79,14 @@ const MinerStats = {
         }
         stats.lastPos = creep.pos;
 
-        // 检测周期完成
-        if (stats.currentCycle.energyCollected > 0 && currentStore === 0) {
-            stats.cycleCount++;
-            stats.currentCycle = {
-                startTime: Game.time,
-                startPos: creep.pos,
-                energyCollected: 0
-            };
-        }
-
         // 更新能量统计
         if (creep.memory.delivering && currentStore === 0) {
-            stats.totalEnergyDelivered += stats.currentCycle.energyCollected;
-        }
-
-        if (creep.store.getUsedCapacity(RESOURCE_ENERGY) === 0) {
-            // 完成一个周期，更新统计
+            stats.cycleCount++;
+            
+            // If we have energy data from the mining phase, add it to total
             if (creep.memory.minerStats && creep.memory.minerStats.currentCycleEnergy) {
-                if (!Memory.minerStats) Memory.minerStats = { miners: {} };
-                if (!Memory.minerStats.miners[creep.name]) Memory.minerStats.miners[creep.name] = { totalEnergyDelivered: 0 };
-                Memory.minerStats.miners[creep.name].totalEnergyDelivered += creep.memory.minerStats.currentCycleEnergy;
+                stats.totalEnergyDelivered += creep.memory.minerStats.currentCycleEnergy;
+                // Reset for next cycle
                 creep.memory.minerStats.currentCycleEnergy = 0;
             }
         }
@@ -142,15 +129,22 @@ const MinerStats = {
         for (const name in Memory.minerStats.miners) {
             if (!Game.creeps[name]) {
                 delete Memory.minerStats.miners[name];
+                console.log(`已清理过期矿工数据: ${name}`);
             }
         }
+        console.log("矿工统计数据清理完成！");
     }
 };
 
-// 添加全局命令
+// 添加全局命令（同时提供大写和小写版本）
 global.minerStats = {
     cleanup: () => MinerStats.cleanup(),
     report: () => console.log(MinerStats.generateReport())
 };
 
+// 添加大写版本的全局命令，方便控制台直接访问
+global.MinerStats = MinerStats;
+
 module.exports = MinerStats; 
+
+// minerStats.cleanup()

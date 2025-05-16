@@ -12,8 +12,6 @@ const roleMiner = {
                 if (creep.memory.containerId) {
                     containerManager.releaseMiner(creep.room, creep.name);
                     delete creep.memory.containerId;
-                    delete creep.memory._containerObj;
-                    delete creep.memory._sourceObj;
                     creep.say('🕯️ 告别');
                 }
                 return;
@@ -33,46 +31,43 @@ const roleMiner = {
                 }
             }
 
-            // 缓存 container 对象
-            if (!creep.memory._containerObj || Game.time % 10 === 0) {
-                const container = Game.getObjectById(creep.memory.containerId);
-                if (!container) {
-                    this._handleInvalidContainer(creep);
-                    return;
-                }
-                creep.memory._containerObj = container;
+            // 获取对象
+            const container = Game.getObjectById(creep.memory.containerId);
+            if (!container) {
+                this._handleInvalidContainer(creep);
+                return;
             }
 
-            const container = creep.memory._containerObj;
             const entry = room.memory.containerData[container.id];
-            
-            // 缓存 source 对象
-            if (!creep.memory._sourceObj || Game.time % 10 === 0) {
-                const source = entry && Game.getObjectById(entry.source);
-                if (!source) {
-                    this._handleInvalidSource(creep);
-                    return;
-                }
-                creep.memory._sourceObj = source;
+            const source = Game.getObjectById(entry.source);
+            if (!source) {
+                this._handleInvalidSource(creep);
+                return;
             }
 
-            const source = creep.memory._sourceObj;
-
-            // 2. 前往 container 位置
+            // 2. 前往 container 位置并执行采矿
             if (!creep.pos.isEqualTo(container.pos)) {
                 this._moveToContainer(creep, container);
-                return;
-            }
+            } else {
+                // 3. 检查并处理 container 状态
+                const containerStatus = this._checkContainerStatus(container);
+                if (containerStatus.isFull) {
+                    creep.say('📦 已满');
+                    return;
+                }
 
-            // 3. 检查并处理 container 状态
-            const containerStatus = this._checkContainerStatus(container);
-            if (containerStatus.isFull) {
-                creep.say('📦 已满');
-                return;
-            }
+                // 4. 执行采矿
+                if (!source.energy) {
+                    return;  // 等待能量源重生
+                }
 
-            // 4. 执行采矿
-            this._performMining(creep, source);
+                const result = creep.harvest(source);
+                if (result === OK) {
+                    if (Game.time % 5 === 0) creep.say('⛏️');
+                } else if (result !== ERR_NOT_ENOUGH_RESOURCES) {
+                    creep.say(`⚠️ ${result}`);
+                }
+            }
         } catch (error) {
             console.log(`Error in roleMiner.run for ${creep.name}: ${error.message}`);
             creep.say('❌ 错误');
@@ -83,8 +78,6 @@ const roleMiner = {
     _handleInvalidContainer(creep) {
         containerManager.releaseMiner(creep.room, creep.name);
         delete creep.memory.containerId;
-        delete creep.memory._containerObj;
-        delete creep.memory._sourceObj;
         creep.say('❌ 无效');
     },
 
@@ -92,8 +85,6 @@ const roleMiner = {
     _handleInvalidSource(creep) {
         containerManager.releaseMiner(creep.room, creep.name);
         delete creep.memory.containerId;
-        delete creep.memory._containerObj;
-        delete creep.memory._sourceObj;
         creep.say('❌ 无源');
     },
 
@@ -120,24 +111,7 @@ const roleMiner = {
             isFull: energy >= capacity * CONTAINER_FULL_THRESHOLD,
             progress: Math.floor((energy / capacity) * 10)
         };
-    },
-
-    /** 执行采矿操作 */
-    _performMining(creep, source) {
-        const result = creep.harvest(source);
-        if (result === ERR_NOT_IN_RANGE) {
-            creep.moveTo(source, {
-                visualizePathStyle: {
-                    stroke: '#ffffff',
-                    opacity: 0.3
-                },
-                reusePath: 5
-            });
-        } else if (result !== OK) {
-            creep.say(`⚠️ ${result}`);
-        }
     }
 };
 
-module.exports = roleMiner;
 module.exports = roleMiner;

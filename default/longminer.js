@@ -26,7 +26,7 @@ const config = {
             roomName: 'W25N48', 
             rally: { x: 23, y: 17 }, 
             mineId: '5bbcab889099fc012e633b76',
-            minerCount: 2  // 第三个矿点需要 2 个矿工
+            minerCount: 1  // 第三个矿点需要 2 个矿工
         }
     ]
 };

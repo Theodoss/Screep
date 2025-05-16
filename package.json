@@ -20,5 +20,8 @@
     "url": "https://github.com/Theodoss/Screep/issues"
   },
   "homepage": "https://github.com/Theodoss/Screep#readme",
-  "description": ""
+  "description": "",
+  "dependencies": {
+    "screeps-api": "^1.16.1"
+  }
 }
