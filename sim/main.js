@@ -11,6 +11,9 @@ const roleMiner = require('role.miner');
 const roleCarrier = require('role.carrier');
 const towerRun  = require('tower');
 const ldminer = require('longDistanceMiner');
+const longminer = require('longminer');
+const dismantle = require('wallDismantler');
+const { linkTransfer, Linkconfig } = require('./linkTransfer');
 
 //任務相關
 const repairManager = require('repairManager');
@@ -21,30 +24,44 @@ const taskDecision = require('taskDecision');
 const carrierMission = require('carrierMission');
 const controllerContainerScan = require('controllerContainerScan');
 const dc = require('dataCollector')
-const dismantle = require('wallDismantler')
+
 const warSpawn = require('warSpawn')
 
 //攻擊相關
-const ss = require('spawnScheduler');
+const { spawnScheduler: ss } = require('spawnScheduler');
 const am = require('attackMission');
 global.extensionPlanner= extensionPlanner;
 
 
+const roomName ='W25N47'
+const room = Game.rooms['W25N47'];
 
 module.exports.loop = function () {
+    //初始化長距能量傳輸狀態統計記憶
+    if (Memory.longdismine === undefined) Memory.longdismine = {};
+    if (Memory.longdismine.energy_used === undefined) Memory.longdismine.energy_used = 0;
+    if (Memory.longdismine.count === undefined) Memory.longdismine.count = 0;
+
     // Game.creeps['scout_69232023'].moveTo(   new RoomPosition(27, 20, 'W26N47'),   { reusePath: 30, visualizePathStyle: { stroke: '#ffffff' } } );
     for (let name in Game.rooms) {
-    containerMgr.run(Game.rooms[name]); //掃描 container並發布任務
-    repairManager.run(Game.rooms[name]); //掃描要維修建築
-    carrierMission.scanTasks(Game.rooms[name]) //掃描要輸送建築
-    controllerContainerScan.scan(Game.rooms[name]) //掃描靠近controll的container
-    towerRun(Game.rooms[name]) //塔的操作
+        containerMgr.run(Game.rooms[name]); //掃描 container並發布任務
+        repairManager.run(Game.rooms[name]); //掃描要維修建築
+        carrierMission.scanTasks(Game.rooms[name]) //掃描要輸送建築
+        controllerContainerScan.scan(Game.rooms[name]) //掃描靠近controll的container
+        towerRun(Game.rooms[name]) //塔的操作
+        
+        if(name==='W25N47'){
+            const sourceLink = Game.getObjectById('6822d6ed346e2d429bcd6fef');  //  替換為你的來源 link ID
+            const targetLink = Game.getObjectById('6822e8073af8a7d65672e6e5');  //  替換為你的目標 link ID
+            if (sourceLink && targetLink) {
+                linkTransfer.transferEnergy(sourceLink, targetLink);
+            }
+        }
     }
     
 
-    // ss.run();
-    const roomName ='sim'
-    const room = Game.rooms['sim'];
+    ss.run();
+
 
     // 检测敌人
     const hostiles = room.find(FIND_HOSTILE_CREEPS);
@@ -54,20 +71,28 @@ module.exports.loop = function () {
     // extensionPlanner.planExtensions('sim', 'Spawn1');
     const spawn = Game.spawns['Spawn1'];
     
+    //Creep生產, 平常生產與戰時生產
     if (!spawn.spawning){
-        (defenseMode ? warSpawn.spawnWarCreeps(spawn) : spawnManager.spawnCreeps)(spawn);
+        (defenseMode ? warSpawn.spawnWarCreeps(spawn) : spawnManager.spawnCreeps(spawn));
     }
 
+    if (Game.time % 1000 === 0) { // Run cleanup periodically
+            for (var name in Memory.creeps) {
+                if (!Game.creeps[name]) {
+                    delete Memory.creeps[name];
+                    console.log(`Memory Cleanup: removed memory of dead creep ${name}`);
+        }
+    }
+        }
+    
 
+    
     for(var name in Game.creeps) {
         var creep = Game.creeps[name];
-        // 清理死掉的 creep 内存
-        if (!creep) {
-                delete Memory.creeps[name];
-                console.log(`Memory Cleanup: removed memory of creep ${name}`);
-            }
+
+            
         if (creep.room.name === roomName && defenseMode)
-            {
+            {            
             // 战时守备：除 miner、attacker、ranger 外，其他角色优先运能给塔，再给 spawn/extension
             if (!['miner','attacker','ranger'].includes(creep.memory.role)) {
                 const energy = creep.store.getUsedCapacity(RESOURCE_ENERGY);
@@ -117,6 +142,7 @@ module.exports.loop = function () {
                 }   
             }
         else if(creep.memory.role == 'harvester') {
+
             if(taskDecision.hasHarvestWork(creep.room)){
                 creep.say("HH")
                 roleHarvester.run(creep);
@@ -185,12 +211,11 @@ module.exports.loop = function () {
             roleCarrier.run(creep);
         }
         else if(creep.memory.role == 'ldminer') {
-            dismantle.run(creep);
+            longminer.run(creep);
         }
 
         else {
             am.run(creep);
-
         }
 
     }

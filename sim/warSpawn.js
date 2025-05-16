@@ -1,9 +1,11 @@
 const ss = require('spawnScheduler');
+const { generateBody } = require('spawnScheduler');
 /**
  * warSpawn.js - 独立的战争模式生产脚本
  * 仅在主逻辑判定 warMode 为 true 时调用
  */
 function spawnWarCreeps(spawn) {
+    console.log("WarTime")
     const room = spawn.room;
     // 矿工优先补充
     const minerCount = _.filter(Game.creeps, c =>
@@ -24,7 +26,7 @@ function spawnWarCreeps(spawn) {
     const role = warRoles[Memory.warSpawnIdx % warRoles.length];
     // 身体配置
 
-    const body = ss.generateBody(role, room.energyCapacityAvailable);
+    const body = generateBody(role, room.energyCapacityAvailable);
 
   
     // 生产并更新索引

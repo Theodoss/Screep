@@ -35,7 +35,7 @@ const roleBuilder = {
       const containers = room.find(FIND_STRUCTURES, {
         filter: s =>
           s.structureType === STRUCTURE_CONTAINER &&
-          s.store.getUsedCapacity(RESOURCE_ENERGY) > 0
+          s.store.getUsedCapacity(RESOURCE_ENERGY) > creep.store.getFreeCapacity(RESOURCE_ENERGY)
       });
       if (containers.length > 0) {
         const cont = pos.findClosestByPath(containers, { reusePath: 10 });

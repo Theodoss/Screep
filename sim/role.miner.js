@@ -33,14 +33,15 @@ const roleMiner = {
             return;
         }
 
-        // 3. 如果容器能量超过阈值，则原地停止等待，不移动
-        if (container.store.getUsedCapacity(RESOURCE_ENERGY) >= 2000) {
+
+        // 3. 前往 container 位置
+        if (!creep.pos.isEqualTo(container.pos)) {
+            creep.moveTo(container.pos, { visualizePathStyle: { stroke: '#ffaa00' } });
             return;
         }
 
-        // 4. 前往 container 位置
-        if (!creep.pos.isEqualTo(container.pos)) {
-            creep.moveTo(container.pos, { visualizePathStyle: { stroke: '#ffaa00' } });
+        // 4. 如果容器能量超过阈值，则原地停止等待，不移动
+        if (container.store.getUsedCapacity(RESOURCE_ENERGY) >= 2000) {
             return;
         }
 

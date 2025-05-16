@@ -239,15 +239,16 @@ const config = {
     homeRoom: 'W25N47',
     storageId: '68173618154309283cf96ead',
     targets: [
-      { roomName: 'W26N47', rally: { x: 39, y: 22 }, wallId: '6693d8ef84d201e90ef08bc6' },
-      { roomName: 'W26N47', rally: { x: 39, y: 22 }, wallId: '6693d8e900e47d254d0a2750' }
+      { roomName: 'W26N47', rally: { x: 39, y: 22 }, wallId: '6693d8f47891e263363d18f1' },
+      { roomName: 'W26N47', rally: { x: 39, y: 22 }, wallId: '6693d8e439f17c0eddbea6be' }
     ]
   };
   
   const wallDismantler = {
     run(creep) {
+        // creep.memory.targetIndex == null
       // 初始化或获取状态
-    //   creep.memory.state = 'rally'
+    //   creep.memory.state = 'dismantle'
       if (creep.memory.targetIndex == null) creep.memory.targetIndex = 0;
       if (!creep.memory.state) creep.memory.state = 'rally';
       const idx = creep.memory.targetIndex;
@@ -262,6 +263,7 @@ const config = {
   
       switch (creep.memory.state) {
         case 'rally': {
+        
           const rallyPos = new RoomPosition(tc.rally.x, tc.rally.y, tc.roomName);
           if (creep.room.name !== tc.roomName || !creep.pos.isEqualTo(rallyPos)) {
             creep.moveTo(rallyPos, { reusePath: 50, ignoreCreeps: true, visualizePathStyle: { stroke: '#ff0000' } });

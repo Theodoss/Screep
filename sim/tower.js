@@ -13,7 +13,7 @@ const towerManager = {
       [STRUCTURE_WALL]: 7,
       others: 8
     },
-    scanInterval: 15,
+    scanInterval: 100,
   
     /**
      * 扫描并缓存修理队列
@@ -24,8 +24,14 @@ const towerManager = {
         room.memory._lastTowerScan = Game.time;
         // 找出所有受损且 hits < 500k 的建筑
         const toRepair = room.find(FIND_STRUCTURES, {
-          filter: s => s.hits < s.hitsMax && s.hits < 500000
-        });
+            filter: s => {
+            //   if (s.structureType === STRUCTURE_WALL) {
+            //     return s.hits < 10000000; // 牆壁上限 100 萬
+            //   } else {
+                return s.hits / s.hitsMax < 0.8 && s.hits < 5000000; // 其他建築修到滿，但不超過 1000 萬
+              }
+            }
+          );
         // 排序：先按优先级，再按生命比例，再按与 controller 距离
         const controllerPos = room.controller && room.controller.pos;
         toRepair.sort((a, b) => {
